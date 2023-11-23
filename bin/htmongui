@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+
+if __name__ == "__main__":
+    import sys
+
+    from PyQt5.QtWidgets import (
+        QApplication
+    )
+
+    app = QApplication(sys.argv)
+    from htmon import HTMonitorWidget
+    window = HTMonitorWidget()
+    window.show()
+    sys.exit(app.exec_())
