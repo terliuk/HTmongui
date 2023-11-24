@@ -5,7 +5,7 @@ import os, sys
 import re
 import numpy as np
 from PyQt5.QtGui import QIntValidator
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, pyqtSignal, QObject
 import serial
 import threading
 from time import time
@@ -45,14 +45,17 @@ class PlotWidget(FigureCanvasQTAgg):
         if not ylabel is None:self.ylabel = ylabel
         self.axes.set_xlabel(self.xlabel, fontsize=9)
         self.axes.set_ylabel(self.ylabel, fontsize=9)
-class SerialThreadHandler:
-    def __init__(self):
+class SerialThreadHandler(QObject):
+    received = pyqtSignal()
+    def __init__(self, parent = None):
+        super().__init__(parent = parent)
         self.status = "idle"
     def ListenForRepsonce(self, serial):
         self.status = "measuring"
         serial.write(b'r')
         self.newlines = serial.readlines()
         self.status = "received"
+        self.received.emit()
     def GetStatus(self):
         return self.status
     def GetResponce(self):
@@ -70,8 +73,8 @@ class HTMonitorWidget(QWidget):
         self.outfiles = {}
         self.outdir = None
         self.lines_written = {}
-        self.serial_thread_handler = SerialThreadHandler()
-
+        self.serial_thread_handler = SerialThreadHandler(self)
+        self.serial_thread_handler.received.connect(self.UpdateData)
         self.setWindowTitle("Humidity/Temperature Monitor")
 
         self.layout = QVBoxLayout()
@@ -90,12 +93,15 @@ class HTMonitorWidget(QWidget):
         self.input_baud = QLineEdit('115200')
         self.input_baud.setValidator(QIntValidator())
         self.input_baud.setFixedWidth(100)
+        
 
         self.button_connect = QPushButton("Connect")
         self.button_connect.clicked.connect(self.Connect)
         self.button_disconnect = QPushButton("Disconnect")
         self.button_disconnect.clicked.connect(self.Disconnect)
         self.button_disconnect.setEnabled(False)
+        self.input_addr.returnPressed.connect(self.Connect)
+        self.input_baud.returnPressed.connect(self.Connect)
         self.setup_layout = QHBoxLayout()
         self.setup_layout.addWidget(self.label_addr)
         self.setup_layout.addWidget(self.input_addr)
@@ -192,8 +198,8 @@ class HTMonitorWidget(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.RequestMeasurement)
         self.timer.start(int(self.updIntervalInput.text())*1000)
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.UpdateData)
+        #self.update_timer = QTimer()
+        #self.update_timer.timeout.connect(self.UpdateData)
 
     def RequestMeasurement(self):
         #print("RequestMeasurement called")
@@ -210,14 +216,14 @@ class HTMonitorWidget(QWidget):
         self.buttonUpdate.setEnabled(False)
         self.measure_time = time()
         threading.Thread(target=self.serial_thread_handler.ListenForRepsonce, args=(self.serial,)).start()
-        self.update_timer.start(100)
-        self.UpdateData()
+        #self.update_timer.start(100)
+        #self.UpdateData()
         self.active = False
     def UpdateData(self):
         #print ("UpdateData called")
         if not self.serial_thread_handler.GetStatus() == "received":
             return
-        self.update_timer.stop()
+        #self.update_timer.stop()
         response = self.serial_thread_handler.GetResponce()
         print(response)
         self.buttonUpdate.setEnabled(True)
@@ -282,7 +288,7 @@ class HTMonitorWidget(QWidget):
         for sensor in self.sensor_data:
             if not sensor in self.outfiles:
                 self.outfiles[sensor] = open(f"{self.outdir}/sensor_{sensor}.csv", "w")
-                self.outfiles[sensor].writelines("time,T,RH")
+                self.outfiles[sensor].writelines("time,T,RH\n")
                 self.lines_written[sensor] = 0 
             for i in range(self.lines_written[sensor], len(self.sensor_data[sensor]['T'])):
                 self.outfiles[sensor].writelines(f"{self.sensor_data[sensor]['time'][i]:0.2f},{self.sensor_data[sensor]['T'][i]:0.2f},{self.sensor_data[sensor]['RH'][i]:0.2f}\n")
