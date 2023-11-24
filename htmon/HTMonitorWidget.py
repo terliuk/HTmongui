@@ -144,10 +144,13 @@ class HTMonitorWidget(QWidget):
         self.fileNameField.setEnabled(False)
         self.fileNameButton = QPushButton("Select output")
         self.fileNameButton.clicked.connect(self.SelectOutdir)
+        self.writeOutputButton = QPushButton("Save now")
+        self.writeOutputButton.clicked.connect(self.CloseAndOpenIntermediate)
         save_layout = QHBoxLayout()
         save_layout.addWidget(self.fileNameLabel)
         save_layout.addWidget(self.fileNameField)
         save_layout.addWidget(self.fileNameButton)
+        save_layout.addWidget(self.writeOutputButton)
         self.controls_layout.addLayout(save_layout, 1,0, 1,2)
         ###
         return self.controls_layout
