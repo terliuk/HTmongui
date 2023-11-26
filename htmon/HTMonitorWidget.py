@@ -16,26 +16,6 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
-class DummySerial:
-    def __init__(self, dev = 'dummy', baud = '0'):
-        self.n_sens = np.random.randint(2,6)
-        self.mean_t = np.random.uniform(20,30, size = self.n_sens)
-        self.mean_h = np.random.uniform(35,55, size = self.n_sens)
-        self.std_t = np.random.uniform(0.3,3, size = self.n_sens) 
-        self.std_h = np.random.uniform(0.5,3, size = self.n_sens) 
-        self.lines = []
-    def write(self, message=''):
-        if message == b'r':
-            outline = ';'.join([f'{i:d}:T={np.random.normal(self.mean_t[i],self.std_t[i]):0.2f}C,RH={np.random.normal(self.mean_h[i],self.std_h[i]):0.2f}%' for i in range(self.n_sens)])
-            outline+="\n"
-            self.lines.append(outline.encode())
-    def readlines(self):
-        output=copy(self.lines)
-        self.lines = []
-        return output
-    def close(self):
-        pass
-            
 class PlotWidget(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=6, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
@@ -50,26 +30,11 @@ class PlotWidget(FigureCanvasQTAgg):
         if not ylabel is None:self.ylabel = ylabel
         self.axes.set_xlabel(self.xlabel, fontsize=9)
         self.axes.set_ylabel(self.ylabel, fontsize=9)
-class SerialThreadHandler(QObject):
-    received = pyqtSignal()
-    def __init__(self, parent = None):
-        super().__init__(parent = parent)
-        self.status = "idle"
-    def ListenForRepsonce(self, serial):
-        self.status = "measuring"
-        serial.write(b'r')
-        self.newlines = serial.readlines()
-        self.status = "received"
-        self.received.emit()
-    def GetStatus(self):
-        return self.status
-    def GetResponce(self):
-        responce = copy(self.newlines)
-        self.newlines = []
-        self.status = "idle"
-        return responce
+
 
 from htmon.ManualEventWidget import ManualEventWidget
+from htmon.SerialThreadHandler import SerialThreadHandler
+from htmon.DummySerial import DummySerial
 
 class HTMonitorWidget(QWidget):
 
