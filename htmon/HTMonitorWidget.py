@@ -1,11 +1,13 @@
 from PyQt5.QtWidgets import (
-    QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QMessageBox, QFileDialog
+    QWidget, QLabel, QLineEdit, QPushButton, 
+    QVBoxLayout, QHBoxLayout, QGridLayout, 
+    QMessageBox, QFileDialog, QDateTimeEdit, QTableWidgetItem, QTableWidget
 )
 import os, sys 
 import re
 import numpy as np
 from PyQt5.QtGui import QIntValidator
-from PyQt5.QtCore import QTimer, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject, QDateTime
 import serial
 import threading
 from time import time
@@ -30,6 +32,8 @@ class DummySerial:
         output=copy(self.lines)
         self.lines = []
         return output
+    def close(self):
+        pass
             
 class PlotWidget(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=6, height=4, dpi=100):
@@ -64,19 +68,21 @@ class SerialThreadHandler(QObject):
         self.status = "idle"
         return responce
 
+from htmon.ManualEventWidget import ManualEventWidget
+
 class HTMonitorWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.timer=None
         self.sensor_data = {}
+        self.manual_events = None 
         self.outfiles = {}
         self.outdir = None
         self.lines_written = {}
         self.serial_thread_handler = SerialThreadHandler(self)
         self.serial_thread_handler.received.connect(self.UpdateData)
         self.setWindowTitle("Humidity/Temperature Monitor")
-
         self.layout = QVBoxLayout()
         self.layout.addLayout(self.CreateSerialControls() ) 
         self.layout.addLayout(self.CreatePlots() )
@@ -86,6 +92,8 @@ class HTMonitorWidget(QWidget):
         self.connected = False
         self.active= False
         self.serial = None
+        self.manualEventsWidget = ManualEventWidget(self)
+        self.manualEventsWidget.events_updated.connect(self.GetEventList)
     def CreateSerialControls(self):
         self.label_addr = QLabel("Serial device:")
         self.input_addr = QLineEdit('/dev/ttyACM0')
@@ -141,10 +149,13 @@ class HTMonitorWidget(QWidget):
         self.buttonUpdate = QPushButton("Update now")
         self.buttonUpdate.clicked.connect(self.RequestMeasurement)
         right_layout.addWidget(self.buttonUpdate)
-        self.controls_layout.addLayout(right_layout, 0,1)
         self.controls_layout.setColumnStretch( 0, 1 )
         self.controls_layout.setColumnStretch( 1, 1 )
-        ###
+        self.eventButton = QPushButton("Manual events")
+        self.eventButton.clicked.connect(self.ShowManualEvents)
+        right_layout.addWidget(self.eventButton)
+        self.controls_layout.addLayout(right_layout, 0,1)
+
         self.fileNameLabel = QLabel("Output:")
         self.fileNameField = QLineEdit("<no file selected>")
         self.fileNameField.setEnabled(False)
@@ -194,7 +205,6 @@ class HTMonitorWidget(QWidget):
         self.button_disconnect.setEnabled(True)
         self.connected = True
         self.active = False
-        self.sensor_data = {}
         self.timer = QTimer()
         self.timer.timeout.connect(self.RequestMeasurement)
         self.timer.start(int(self.updIntervalInput.text())*1000)
@@ -225,7 +235,7 @@ class HTMonitorWidget(QWidget):
             return
         #self.update_timer.stop()
         response = self.serial_thread_handler.GetResponce()
-        print(response)
+        print("Serial response: ", response)
         self.buttonUpdate.setEnabled(True)
         if len(response) == 0:
             print("WARNING: No responce received")
@@ -247,6 +257,8 @@ class HTMonitorWidget(QWidget):
             self.WriteData()
 
     def UpdatePlots(self):
+        if len(self.sensor_data) == 0:
+            return
         self.temperaturePlot.axes.clear()
         self.humidityPlot.axes.clear()
         unit = 's'
@@ -263,6 +275,13 @@ class HTMonitorWidget(QWidget):
         for sensor in self.sensor_data:
             self.temperaturePlot.axes.plot( (times[sensor] - st_time)*mult, self.sensor_data[sensor]['T'], label = f"Sensor {sensor}")
             self.humidityPlot.axes.plot( (times[sensor]- st_time)*mult, self.sensor_data[sensor]['RH'], label = f"Sensor {sensor}")
+        if not (self.manual_events is None):
+            for i in range(len(self.manual_events["time"])):
+                self.temperaturePlot.axes.axvline((self.manual_events["time"][i] - st_time)*mult, linestyle = '--', 
+                        label = f"{self.manual_events['name'][i]}")
+                self.humidityPlot.axes.axvline((self.manual_events["time"][i] - st_time)*mult, linestyle = '--',
+                        label = f"{self.manual_events['name'][i]}")
+                pass
         self.temperaturePlot.axes.legend(fontsize=8)
         self.humidityPlot.axes.legend(fontsize=8)
         self.temperaturePlot.SetXYLabels(xlabel = f"Time [{unit}]", ylabel = "Temperature [C]")
@@ -293,6 +312,16 @@ class HTMonitorWidget(QWidget):
             for i in range(self.lines_written[sensor], len(self.sensor_data[sensor]['T'])):
                 self.outfiles[sensor].writelines(f"{self.sensor_data[sensor]['time'][i]:0.2f},{self.sensor_data[sensor]['T'][i]:0.2f},{self.sensor_data[sensor]['RH'][i]:0.2f}\n")
             self.lines_written[sensor] = len(self.sensor_data[sensor]['T'])
+    def ShowManualEvents(self):
+        self.manualEventsWidget.show()
+
+    def GetEventList(self):
+        self.manual_events = self.manualEventsWidget.GetEvents()        
+        for i in range(len(self.manual_events["time"])):
+            self.manual_events['time'][i] = QDateTime.fromString(
+                    self.manual_events['time'][i], 
+                    "yyyy-MM-dd HH:mm:ss").toSecsSinceEpoch() 
+        self.UpdatePlots()
     def CloseAndOpenIntermediate(self):
         #print("Autosaving files")
         for sensor in self.outfiles:
