@@ -14,6 +14,7 @@ from time import time
 from copy import copy 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 class DummySerial:
     def __init__(self, dev = 'dummy', baud = '0'):
@@ -275,12 +276,14 @@ class HTMonitorWidget(QWidget):
         for sensor in self.sensor_data:
             self.temperaturePlot.axes.plot( (times[sensor] - st_time)*mult, self.sensor_data[sensor]['T'], label = f"Sensor {sensor}")
             self.humidityPlot.axes.plot( (times[sensor]- st_time)*mult, self.sensor_data[sensor]['RH'], label = f"Sensor {sensor}")
+        
         if not (self.manual_events is None):
+            color_cycle = plt.rcParams['axes.prop_cycle']()
             for i in range(len(self.manual_events["time"])):
-                self.temperaturePlot.axes.axvline((self.manual_events["time"][i] - st_time)*mult, linestyle = '--', 
-                        label = f"{self.manual_events['name'][i]}")
+                l_ = self.temperaturePlot.axes.axvline((self.manual_events["time"][i] - st_time)*mult, linestyle = '--', 
+                        label = f"{self.manual_events['name'][i]}", **(next(color_cycle)))
                 self.humidityPlot.axes.axvline((self.manual_events["time"][i] - st_time)*mult, linestyle = '--',
-                        label = f"{self.manual_events['name'][i]}")
+                        label = f"{self.manual_events['name'][i]}", color = l_.get_color())
                 pass
         self.temperaturePlot.axes.legend(fontsize=8)
         self.humidityPlot.axes.legend(fontsize=8)
@@ -289,7 +292,11 @@ class HTMonitorWidget(QWidget):
         self.temperaturePlot.draw()
         self.humidityPlot.draw()
     def SelectOutdir(self):
-        self.outdir = QFileDialog.getExistingDirectory(self, "Select output folder", os.getcwd())
+        outdir = QFileDialog.getExistingDirectory(self, "Select output folder", os.getcwd())
+        if outdir == "":
+            return
+        self.outdir=outdir
+        print(self.outdir)
         self.fileNameField.setText(self.outdir)
         self.outfiles = {}
         for sensor in self.sensor_data:
@@ -312,6 +319,14 @@ class HTMonitorWidget(QWidget):
             for i in range(self.lines_written[sensor], len(self.sensor_data[sensor]['T'])):
                 self.outfiles[sensor].writelines(f"{self.sensor_data[sensor]['time'][i]:0.2f},{self.sensor_data[sensor]['T'][i]:0.2f},{self.sensor_data[sensor]['RH'][i]:0.2f}\n")
             self.lines_written[sensor] = len(self.sensor_data[sensor]['T'])
+        ## Writing events
+        self.outfiles['events'] = open(f"{self.outdir}/events.csv", "w")
+        self.outfiles['events'].writelines("time,name,description\n")
+        if not (self.manual_events is None):
+            for i in range(len(self.manual_events["time"])):
+                self.outfiles['events'].write(f"{self.manual_events['time'][i]:0.2f},{self.manual_events['name'][i]},{self.manual_events['description'][i]}\n")
+            self.lines_written['events'] = len(self.manual_events["time"])
+        
     def ShowManualEvents(self):
         self.manualEventsWidget.show()
 
@@ -324,9 +339,11 @@ class HTMonitorWidget(QWidget):
         self.UpdatePlots()
     def CloseAndOpenIntermediate(self):
         #print("Autosaving files")
-        for sensor in self.outfiles:
+        for sensor in self.sensor_data:
             self.outfiles[sensor].close()
             self.outfiles[sensor] = open(f"{self.outdir}/sensor_{sensor}.csv", "a")
+        self.outfiles['events'].close()
+        self.outfiles['events'] = open(f"{self.outdir}/events.csv", "a")
     def Disconnect(self):
         self.connected = False
         self.button_connect.setEnabled(True)
