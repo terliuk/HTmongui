@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 class PlotWidget(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=6, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_axes([0.12, 0.1, 0.85, 0.85])
+        self.axes = fig.add_axes([0.12, 0.12, 0.85, 0.85])
         self.axes.xaxis.set_tick_params(labelsize=8)
         self.axes.yaxis.set_tick_params(labelsize=8)
         self.xlabel=None
@@ -60,6 +60,7 @@ class HTMonitorWidget(QWidget):
         self.serial = None
         self.manualEventsWidget = ManualEventWidget(self)
         self.manualEventsWidget.events_updated.connect(self.GetEventList)
+        self.autosave_timer = None
     def CreateSerialControls(self):
         self.label_addr = QLabel("Serial device:")
         self.input_addr = QLineEdit('/dev/ttyACM0')
@@ -275,7 +276,9 @@ class HTMonitorWidget(QWidget):
         #print("Writing data")
         if self.outdir is None:
             self.WarnUser(text = "No output directory selected", title = "ERROR!")
-            return
+            if not (self.autosave_timer is None):
+                self.autosave_timer.stop()
+                return
         for sensor in self.sensor_data:
             if not sensor in self.outfiles:
                 self.outfiles[sensor] = open(f"{self.outdir}/sensor_{sensor}.csv", "w")
@@ -285,13 +288,13 @@ class HTMonitorWidget(QWidget):
                 self.outfiles[sensor].writelines(f"{self.sensor_data[sensor]['time'][i]:0.2f},{self.sensor_data[sensor]['T'][i]:0.2f},{self.sensor_data[sensor]['RH'][i]:0.2f}\n")
             self.lines_written[sensor] = len(self.sensor_data[sensor]['T'])
         ## Writing events
-        self.outfiles['events'] = open(f"{self.outdir}/events.csv", "w")
+        if not 'events' in self.outfiles:
+            self.outfiles['events'] = open(f"{self.outdir}/events.csv", "w")
         self.outfiles['events'].writelines("time,name,description\n")
         if not (self.manual_events is None):
             for i in range(len(self.manual_events["time"])):
                 self.outfiles['events'].write(f"{self.manual_events['time'][i]:0.2f},{self.manual_events['name'][i]},{self.manual_events['description'][i]}\n")
             self.lines_written['events'] = len(self.manual_events["time"])
-        
     def ShowManualEvents(self):
         self.manualEventsWidget.show()
 
@@ -309,6 +312,11 @@ class HTMonitorWidget(QWidget):
             self.outfiles[sensor] = open(f"{self.outdir}/sensor_{sensor}.csv", "a")
         self.outfiles['events'].close()
         self.outfiles['events'] = open(f"{self.outdir}/events.csv", "a")
+        ## And saving plots
+        self.temperaturePlot.figure.savefig(f"{self.outdir}/plot_temperature.png", dpi=300)
+        self.humidityPlot.figure.savefig(f"{self.outdir}/plot_humidity.png", dpi=300)
+        self.temperaturePlot.figure.savefig(f"{self.outdir}/plot_temperature.pdf", dpi=300)
+        self.humidityPlot.figure.savefig(f"{self.outdir}/plot_humidity.pdf", dpi=300)
     def Disconnect(self):
         self.connected = False
         self.button_connect.setEnabled(True)
