@@ -323,6 +323,7 @@ class HTMonitorWidget(QWidget):
         self.button_disconnect.setEnabled(False)
         self.serial.close()
         self.serial = None
+        self.timer.stop()
     def WarnUser(self, text = "Warning", title="WARNING! "):
         alert = QMessageBox(self)
         alert.setWindowTitle(title)
