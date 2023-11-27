@@ -51,6 +51,8 @@ class ManualEventWidget(QWidget):
         text = self.eventNameEdit.text()
         description = self.eventDescriptionEdit.text()
         self.AddEvent(time, text, description)
+        self.eventNameEdit.setText("")
+        self.eventDescriptionEdit.setText("")
         self.UpdateCurrentTime()
 
     def RemoveSelected(self):
