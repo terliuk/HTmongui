@@ -96,7 +96,7 @@ class HTMonitorWidget(QWidget):
         return self.plot_layout
     def SetRegExp(self, regexp=None):
         if regexp is None:
-            self.regexp = re.compile('(?P<sensor>[0-9]*):T=(?P<T>[0-9]*.[0-9]*)C,RH=(?P<RH>[0-9]*.[0-9]*)%', re.IGNORECASE)
+            self.regexp = re.compile('(?P<sensor>[0-9]*):T=(?P<T>[+-]?[0-9]*.[0-9]*)C,RH=(?P<RH>[+-]?[0-9]*.[0-9]*)%', re.IGNORECASE)
         else:
             self.regexp = re.compile(regexp, re.IGNORECASE)
     def CreateControls(self):

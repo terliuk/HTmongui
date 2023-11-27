@@ -7,8 +7,8 @@ class DummySerial:
     """
     def __init__(self, dev = 'dummy', baud = '0'):
         self.n_sens = np.random.randint(2,6)
-        self.mean_t = np.random.uniform(20,30, size = self.n_sens)
-        self.mean_h = np.random.uniform(35,55, size = self.n_sens)
+        self.mean_t = np.random.uniform(-3,3, size = self.n_sens)
+        self.mean_h = np.random.uniform(20,60, size = self.n_sens)
         self.std_t = np.random.uniform(0.3,3, size = self.n_sens) 
         self.std_h = np.random.uniform(0.5,3, size = self.n_sens) 
         self.lines = []
