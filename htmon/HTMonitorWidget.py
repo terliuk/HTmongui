@@ -251,8 +251,8 @@ class HTMonitorWidget(QWidget):
                 self.humidityPlot.axes.axvline((self.manual_events["time"][i] - st_time)*mult, linestyle = '--',
                         label = f"{self.manual_events['name'][i]}", color = l_.get_color())
                 pass
-        self.temperaturePlot.axes.legend(fontsize=8)
-        self.humidityPlot.axes.legend(fontsize=8)
+        self.temperaturePlot.axes.legend(fontsize=6)
+        self.humidityPlot.axes.legend(fontsize=6)
         self.temperaturePlot.SetXYLabels(xlabel = f"Time [{unit}]", ylabel = "Temperature [C]")
         self.humidityPlot.SetXYLabels(xlabel = f"Time [{unit}]", ylabel = "Relative humidity [%]")
         self.temperaturePlot.draw()
