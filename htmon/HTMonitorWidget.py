@@ -172,6 +172,7 @@ class HTMonitorWidget(QWidget):
         self.button_disconnect.setEnabled(True)
         self.connected = True
         self.active = False
+        self.RequestMeasurement()
         self.timer = QTimer()
         self.timer.timeout.connect(self.RequestMeasurement)
         self.timer.start(int(self.updIntervalInput.text())*1000)
